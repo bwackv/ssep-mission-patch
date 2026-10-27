@@ -907,8 +907,10 @@ var CONFIG = {
   glowPeak: 0.17,             // brightness of the Milky Way glow
   fadeEdge: 150,              // px over which the sky fades in behind the hero lettering
   fadeAmount: 0.85,           // how far it fades there (1 = black)
-  twinkleFps: 30,             // redraw rate while only the stars are twinkling
-  globeFps: 25,               // redraw rate of the turning planets
+  twinkleFps: 12,             // redraw rate while only the stars are twinkling
+  globeFps: 15,               // redraw rate of the turning planets
+  restAfter: 30000,           // ms without scrolling, pointer or keys before the sky holds still
+  skyDpr: 1.5,                // resolution cap for the full-window sky canvases
   padRocketDelay: 800,        // ms the timeline rocket waits in view before it lifts off
   introDelay: 900, introLife: 5200   // the arrival rocket: wait, then flight time, in ms
 };
@@ -1078,6 +1080,19 @@ function placeDrift(){
 // The sky scrolls more slowly than the page, brighter (nearer-seeming) stars a little faster, for depth.
 var sky = document.querySelector('.sky'), ctx = sky.getContext('2d');
 var still = window.matchMedia('(prefers-reduced-motion:reduce)');
+// After a spell with no input the ambient motion holds, so an idle tab stops working the machine.
+// clock() is time with the rests taken out, so the planets and orbits pick up where they stopped.
+var lastInput = performance.now(), restedFor = 0;
+function resting(now){ return still.matches || now - lastInput > CONFIG.restAfter; }
+function clock(now){ return now - restedFor; }
+['scroll', 'pointermove', 'pointerdown', 'keydown', 'touchstart'].forEach(function(type){
+  window.addEventListener(type, function(){
+    var now = performance.now();
+    if(now - lastInput > CONFIG.restAfter) restedFor += now - (lastInput + CONFIG.restAfter);
+    lastInput = now;
+    kick();
+  }, { passive: true });
+});
 // Spectral classes B A F G K M: share of naked-eye stars (%) and colour (Charity's blackbody table)
 var CLASSES = [[22, [170,191,255]], [20, [202,215,255]], [14, [248,247,255]], [13, [255,244,234]], [24, [255,210,161]], [7, [255,204,111]]];
 var METEOR_TINTS = ['255,255,255', '255,255,255', '255,228,176', '214,228,255'];
@@ -1202,7 +1217,7 @@ function renderGlow(){
 // Sizes the canvas to the window; re-seeds the sky only when the width changes (positions are
 // fractions of the page, so a change in height just stretches them)
 function layoutSky(){
-  dpr = window.devicePixelRatio || 1;
+  dpr = Math.min(CONFIG.skyDpr, window.devicePixelRatio || 1);
   var w = window.innerWidth;
   vh = window.innerHeight;
   sky.width = skyFront.width = Math.round(w * dpr); sky.height = skyFront.height = Math.round(vh * dpr);
@@ -1304,7 +1319,7 @@ function drawSky(now){
   frame = 0;
   // While only the stars twinkle, a lower frame rate is plenty; anything in flight gets every frame
   var busy = scrolled || meteors.length || rocket.state === 'flight' || rocket.smoke.length || !intro.done || intro.smoke.length;
-  if(!busy && now - lastSky < 1000 / CONFIG.twinkleFps){ kick(); return; }
+  if(!busy && now - lastSky < 1000 / CONFIG.twinkleFps){ if(!resting(now)) kick(); return; }
   lastSky = now; scrolled = false;
   ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, vw, vh);
@@ -1315,7 +1330,7 @@ function drawSky(now){
     var sy = top * DEPTH / GLOW_SCALE;
     ctx.drawImage(glow, 0, sy, glow.width, vh / GLOW_SCALE, 0, 0, glow.width * GLOW_SCALE, vh);
   }
-  var moving = !still.matches;
+  var moving = !resting(now), tick = clock(now);
   stars.forEach(function(s){
     var x = s.x * vw, y = s.base - top * s.depth;
     if(y < -s.size || y > vh + s.size) return;
@@ -1324,7 +1339,7 @@ function drawSky(now){
       stamp(s.img, x, y, s.size, s.turn);
       return;
     }
-    var p = s.pulse, a = now * p.rate;
+    var p = s.pulse, a = tick * p.rate;
     var k = (Math.sin(a + p.p1) + 0.6 * Math.sin(1.73 * a + p.p2) + 0.35 * Math.sin(2.91 * a + p.p3)) / 1.95;
     k = (k + 1) / 2;
     var size = s.size * (1 - p.amount * 0.5 + p.amount * k), bright = Math.min(1, s.alpha * (1 - p.amount + 1.4 * p.amount * k));
@@ -1344,9 +1359,9 @@ function drawSky(now){
   fadeBehindText();
   drawRocket(now);
   introRocket(now);
-  turnGlobes(now);
-  animateFills(now);
-  orbitSatellite(now);
+  turnGlobes(tick);
+  animateFills(tick);
+  orbitSatellite(tick);
   // The twinkling keeps the sky moving; with reduced motion it redraws only for scroll
   if(busy || moving) kick();
 }
@@ -1388,7 +1403,7 @@ function fadeBehindText(){
 
 // A new shooting star every half second to under two seconds, at random
 function launch(){
-  if(!still.matches && !document.hidden){ meteor(); kick(); }
+  if(!resting(performance.now()) && !document.hidden){ meteor(); kick(); }
   setTimeout(launch, between(CONFIG.meteorEvery[0], CONFIG.meteorEvery[1]));
 }
 window.addEventListener('scroll', function(){ scrolled = true; kick(); }, { passive: true });
