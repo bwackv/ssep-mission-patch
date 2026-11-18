@@ -86,6 +86,8 @@ strong,b{font-variation-settings:"wdth" 100,"wght" 600,"ROND" 25;}
 .hero .tag{font-family:var(--font);font-variation-settings:"wdth" 100,"wght" 500,"ROND" 55;letter-spacing:.08em;line-height:1.5;margin-bottom:var(--s2);}
 .hero h2{margin-bottom:var(--s2);}
 .hero-note{margin-top:var(--s2);font-size:var(--t0);}
+/* The deadline takes the subheading treatment so it cannot be skimmed past */
+.hero .deadline{font-size:var(--h2size);font-variation-settings:"wdth" 100,"wght" 400,"ROND" 55;line-height:1.1;margin:var(--s3) 0;}
 /* The subheading runs the title's width, balanced across its lines */
 .hero h2{max-width:none;text-wrap:balance;}
 /* Pretty wrapping keeps a lone word off the intro's last line */
@@ -397,9 +399,10 @@ body{position:relative;}
       <h1><span>Your Art.</span><span>On a Rocket.</span><span>Seriously.</span></h1>
       <h2>Design Baruch&rsquo;s official Mission 22 patch.</h2>
       <p>The winning design could leave Earth and travel to the International Space Station.</p>
+      <p class="deadline">Submission deadline: February 5, 2027</p>
       <!-- Button text and link are set by the script at the bottom of the page -->
       <p><a class="btn submit-link" href="#submit">Enter the Competition &rarr; <small>(coming soon)</small></a></p>
-      <p class="note hero-note"><strong>Submission deadline: February 5, 2027.</strong> Open to all Baruch students. No design experience required.</p>
+      <p class="note hero-note">Open to all Baruch students. No design experience required.</p>
     </div>
   </header>
 
